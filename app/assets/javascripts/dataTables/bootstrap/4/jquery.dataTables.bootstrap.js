@@ -1,13 +1,13 @@
-/*! DataTables Foundation integration
+/*! DataTables Bootstrap 3 integration
  * ©2011-2015 SpryMedia Ltd - datatables.net/license
  */
 
 /**
- * DataTables integration for Foundation. This requires Foundation 5 and
+ * DataTables integration for Bootstrap 3. This requires Bootstrap 3 and
  * DataTables 1.10 or newer.
  *
  * This file sets the defaults and adds options to DataTables to style its
- * controls using Foundation. See http://datatables.net/manual/styling/foundation
+ * controls using Bootstrap. See http://datatables.net/manual/styling/bootstrap
  * for further information.
  */
 (function( factory ){
@@ -25,6 +25,9 @@
 			}
 
 			if ( ! $ || ! $.fn.dataTable ) {
+				// Require DataTables, which attaches to jQuery, including
+				// jQuery if needed and have a $ property so we can access the
+				// jQuery object that is used
 				$ = require('datatables.net')(root, $).$;
 			}
 
@@ -40,35 +43,39 @@
 var DataTable = $.fn.dataTable;
 
 
-$.extend( DataTable.ext.classes, {
-	sWrapper:    "dataTables_wrapper dt-foundation",
-	sProcessing: "dataTables_processing panel"
-} );
-
-
 /* Set the defaults for DataTables initialisation */
 $.extend( true, DataTable.defaults, {
 	dom:
-		"<'row'<'small-6 columns'l><'small-6 columns'f>r>"+
-		"t"+
-		"<'row'<'small-6 columns'i><'small-6 columns'p>>",
-	renderer: 'foundation'
+		"<'row'<'col-md-6'l><'col-md-6'f>>" +
+		"<'row'<'col-md-12'tr>>" +
+		"<'row'<'col-md-5'i><'col-md-7'p>>",
+	renderer: 'bootstrap'
 } );
 
 
-/* Page button renderer */
-DataTable.ext.renderer.pageButton.foundation = function ( settings, host, idx, buttons, page, pages ) {
-	var api = new DataTable.Api( settings );
+/* Default class modification */
+$.extend( DataTable.ext.classes, {
+	sWrapper:      "dataTables_wrapper form-inline dt-bootstrap4",
+	sFilterInput:  "form-control input-sm",
+	sLengthSelect: "form-control input-sm",
+	sProcessing:   "dataTables_processing panel panel-default",
+	sPageButton:   "paginate_button page-item"
+} );
+
+
+/* Bootstrap paging button renderer */
+DataTable.ext.renderer.pageButton.bootstrap = function ( settings, host, idx, buttons, page, pages ) {
+	var api     = new DataTable.Api( settings );
 	var classes = settings.oClasses;
-	var lang = settings.oLanguage.oPaginate;
+	var lang    = settings.oLanguage.oPaginate;
 	var aria = settings.oLanguage.oAria.paginate || {};
-	var btnDisplay, btnClass;
+	var btnDisplay, btnClass, counter=0;
 
 	var attach = function( container, buttons ) {
 		var i, ien, node, button;
 		var clickHandler = function ( e ) {
 			e.preventDefault();
-			if ( !$(e.currentTarget).hasClass('unavailable') && api.page() != e.data.action ) {
+			if ( !$(e.currentTarget).hasClass('disabled') && api.page() != e.data.action ) {
 				api.page( e.data.action ).draw( 'page' );
 			}
 		};
@@ -86,52 +93,54 @@ DataTable.ext.renderer.pageButton.foundation = function ( settings, host, idx, b
 				switch ( button ) {
 					case 'ellipsis':
 						btnDisplay = '&#x2026;';
-						btnClass = 'unavailable';
+						btnClass = 'disabled';
 						break;
 
 					case 'first':
 						btnDisplay = lang.sFirst;
 						btnClass = button + (page > 0 ?
-							'' : ' unavailable');
+							'' : ' disabled');
 						break;
 
 					case 'previous':
 						btnDisplay = lang.sPrevious;
 						btnClass = button + (page > 0 ?
-							'' : ' unavailable');
+							'' : ' disabled');
 						break;
 
 					case 'next':
 						btnDisplay = lang.sNext;
 						btnClass = button + (page < pages-1 ?
-							'' : ' unavailable');
+							'' : ' disabled');
 						break;
 
 					case 'last':
 						btnDisplay = lang.sLast;
 						btnClass = button + (page < pages-1 ?
-							'' : ' unavailable');
+							'' : ' disabled');
 						break;
 
 					default:
 						btnDisplay = button + 1;
 						btnClass = page === button ?
-							'current' : '';
+							'active' : '';
 						break;
 				}
 
 				if ( btnDisplay ) {
 					node = $('<li>', {
 							'class': classes.sPageButton+' '+btnClass,
-							'aria-controls': settings.sTableId,
-							'aria-label': aria[ button ],
-							'tabindex': settings.iTabIndex,
 							'id': idx === 0 && typeof button === 'string' ?
 								settings.sTableId +'_'+ button :
 								null
 						} )
 						.append( $('<a>', {
-								'href': '#'
+								'href': '#',
+								'aria-controls': settings.sTableId,
+								'aria-label': aria[ button ],
+								'data-dt-idx': counter,
+								'tabindex': settings.iTabIndex,
+								'class': 'page-link'
 							} )
 							.html( btnDisplay )
 						)
@@ -140,15 +149,34 @@ DataTable.ext.renderer.pageButton.foundation = function ( settings, host, idx, b
 					settings.oApi._fnBindAction(
 						node, {action: button}, clickHandler
 					);
+
+					counter++;
 				}
 			}
 		}
 	};
 
+	// IE9 throws an 'unknown error' if document.activeElement is used
+	// inside an iframe or frame. 
+	var activeEl;
+
+	try {
+		// Because this approach is destroying and recreating the paging
+		// elements, focus is lost on the select button which is bad for
+		// accessibility. So we want to restore focus once the draw has
+		// completed
+		activeEl = $(host).find(document.activeElement).data('dt-idx');
+	}
+	catch (e) {}
+
 	attach(
 		$(host).empty().html('<ul class="pagination"/>').children('ul'),
 		buttons
 	);
+
+	if ( activeEl ) {
+		$(host).find( '[data-dt-idx='+activeEl+']' ).focus();
+	}
 };
 
 
